@@ -31,7 +31,7 @@ export const VideoPlayer = ({
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [volume, setVolume] = useState(1)
-  const [_isFullscreen, setIsFullscreen] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const [showControls, setShowControls] = useState(true)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -169,15 +169,74 @@ export const VideoPlayer = ({
     setIsMuted(newVolume === 0)
   }
 
+  // Detect iOS device
+  const isIOS = () => {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  }
+
+  // Detect if fullscreen is supported
+  const isFullscreenSupported = () => {
+    const video = videoRef.current
+    if (!video) return false
+    
+    return !!(
+      video.requestFullscreen ||
+      (video as any).webkitEnterFullscreen ||
+      (video as any).webkitRequestFullscreen ||
+      (video as any).mozRequestFullScreen ||
+      (video as any).msRequestFullscreen
+    )
+  }
+
   const toggleFullscreen = () => {
     if (!videoRef.current) return
+    
+    const video = videoRef.current
 
-    if (!document.fullscreenElement) {
-      videoRef.current.requestFullscreen()
-      setIsFullscreen(true)
-    } else {
-      document.exitFullscreen()
-      setIsFullscreen(false)
+    try {
+      // For iOS devices, use webkitEnterFullscreen
+      if (isIOS() && (video as any).webkitEnterFullscreen) {
+        if (!isFullscreen) {
+          (video as any).webkitEnterFullscreen()
+          setIsFullscreen(true)
+        }
+        // iOS handles exit automatically when user taps done
+        return
+      }
+
+      // For other browsers, use standard fullscreen API
+      if (!document.fullscreenElement && 
+          !(document as any).webkitFullscreenElement && 
+          !(document as any).mozFullScreenElement && 
+          !(document as any).msFullscreenElement) {
+        
+        // Try different fullscreen methods
+        if (video.requestFullscreen) {
+          video.requestFullscreen()
+        } else if ((video as any).webkitRequestFullscreen) {
+          (video as any).webkitRequestFullscreen()
+        } else if ((video as any).mozRequestFullScreen) {
+          (video as any).mozRequestFullScreen()
+        } else if ((video as any).msRequestFullscreen) {
+          (video as any).msRequestFullscreen()
+        }
+        setIsFullscreen(true)
+      } else {
+        // Exit fullscreen
+        if (document.exitFullscreen) {
+          document.exitFullscreen()
+        } else if ((document as any).webkitExitFullscreen) {
+          (document as any).webkitExitFullscreen()
+        } else if ((document as any).mozCancelFullScreen) {
+          (document as any).mozCancelFullScreen()
+        } else if ((document as any).msExitFullscreen) {
+          (document as any).msExitFullscreen()
+        }
+        setIsFullscreen(false)
+      }
+    } catch (error) {
+      console.warn('Fullscreen not supported or failed:', error)
     }
   }
 
@@ -200,6 +259,53 @@ export const VideoPlayer = ({
     }
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
   }
+
+  // Effect to handle fullscreen events
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isCurrentlyFullscreen = !!(
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      )
+      setIsFullscreen(isCurrentlyFullscreen)
+    }
+
+    const handleWebkitFullscreenChange = () => {
+      // For iOS Safari
+      if (videoRef.current) {
+        const video = videoRef.current as any
+        setIsFullscreen(!!video.webkitDisplayingFullscreen)
+      }
+    }
+
+    // Add event listeners for fullscreen changes
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange)
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange)
+    document.addEventListener('msfullscreenchange', handleFullscreenChange)
+
+    // iOS specific events
+    if (videoRef.current) {
+      const video = videoRef.current
+      video.addEventListener('webkitbeginfullscreen', () => setIsFullscreen(true))
+      video.addEventListener('webkitendfullscreen', () => setIsFullscreen(false))
+    }
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange)
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange)
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange)
+      document.removeEventListener('msfullscreenchange', handleFullscreenChange)
+      
+      if (videoRef.current) {
+        const video = videoRef.current
+        video.removeEventListener('webkitbeginfullscreen', () => setIsFullscreen(true))
+        video.removeEventListener('webkitendfullscreen', () => setIsFullscreen(false))
+      }
+    }
+  }, [])
 
   // Effect to ensure first frame is shown
   useEffect(() => {
@@ -268,6 +374,8 @@ export const VideoPlayer = ({
         x5-video-player-type="h5"
         x5-video-player-fullscreen="true"
         x5-playsinline="true"
+        controls={false}
+        disablePictureInPicture={false}
         style={{ backgroundColor: 'transparent' }}
         onLoadedData={handleLoadedData}
         onLoadedMetadata={handleLoadedMetadata}
@@ -423,12 +531,15 @@ export const VideoPlayer = ({
 
             {/* Right Controls */}
             <div className="flex items-center space-x-2">
-              <button
-                onClick={toggleFullscreen}
-                className="hover:bg-white hover:bg-opacity-20 p-2 rounded-full transition-colors"
-              >
-                <Maximize className="w-4 h-4" />
-              </button>
+              {isFullscreenSupported() && (
+                <button
+                  onClick={toggleFullscreen}
+                  className="hover:bg-white hover:bg-opacity-20 p-2 rounded-full transition-colors"
+                  title={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
+                >
+                  <Maximize className={`w-4 h-4 ${isFullscreen ? 'text-blue-400' : ''}`} />
+                </button>
+              )}
             </div>
           </div>
         </div>
