@@ -3,6 +3,26 @@
 import { useState, useRef, useEffect } from 'react'
 import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw } from 'lucide-react'
 
+// Extended HTMLVideoElement interface for webkit methods
+interface ExtendedHTMLVideoElement extends HTMLVideoElement {
+  webkitEnterFullscreen?: () => void
+  webkitExitFullscreen?: () => void
+  webkitRequestFullscreen?: () => void
+  webkitDisplayingFullscreen?: boolean
+  mozRequestFullScreen?: () => void
+  msRequestFullscreen?: () => void
+}
+
+// Extended Document interface for webkit methods
+interface ExtendedDocument extends Document {
+  webkitFullscreenElement?: Element
+  webkitExitFullscreen?: () => void
+  mozFullScreenElement?: Element
+  mozCancelFullScreen?: () => void
+  msFullscreenElement?: Element
+  msExitFullscreen?: () => void
+}
+
 interface VideoPlayerProps {
   src?: string
   title: string
@@ -177,28 +197,29 @@ export const VideoPlayer = ({
 
   // Detect if fullscreen is supported
   const isFullscreenSupported = () => {
-    const video = videoRef.current
+    const video = videoRef.current as ExtendedHTMLVideoElement | null
     if (!video) return false
     
     return !!(
       video.requestFullscreen ||
-      (video as any).webkitEnterFullscreen ||
-      (video as any).webkitRequestFullscreen ||
-      (video as any).mozRequestFullScreen ||
-      (video as any).msRequestFullscreen
+      video.webkitEnterFullscreen ||
+      video.webkitRequestFullscreen ||
+      video.mozRequestFullScreen ||
+      video.msRequestFullscreen
     )
   }
 
   const toggleFullscreen = () => {
     if (!videoRef.current) return
     
-    const video = videoRef.current
+    const video = videoRef.current as ExtendedHTMLVideoElement
+    const extDocument = document as ExtendedDocument
 
     try {
       // For iOS devices, use webkitEnterFullscreen
-      if (isIOS() && (video as any).webkitEnterFullscreen) {
+      if (isIOS() && video.webkitEnterFullscreen) {
         if (!isFullscreen) {
-          (video as any).webkitEnterFullscreen()
+          video.webkitEnterFullscreen()
           setIsFullscreen(true)
         }
         // iOS handles exit automatically when user taps done
@@ -207,31 +228,31 @@ export const VideoPlayer = ({
 
       // For other browsers, use standard fullscreen API
       if (!document.fullscreenElement && 
-          !(document as any).webkitFullscreenElement && 
-          !(document as any).mozFullScreenElement && 
-          !(document as any).msFullscreenElement) {
+          !extDocument.webkitFullscreenElement && 
+          !extDocument.mozFullScreenElement && 
+          !extDocument.msFullscreenElement) {
         
         // Try different fullscreen methods
         if (video.requestFullscreen) {
           video.requestFullscreen()
-        } else if ((video as any).webkitRequestFullscreen) {
-          (video as any).webkitRequestFullscreen()
-        } else if ((video as any).mozRequestFullScreen) {
-          (video as any).mozRequestFullScreen()
-        } else if ((video as any).msRequestFullscreen) {
-          (video as any).msRequestFullscreen()
+        } else if (video.webkitRequestFullscreen) {
+          video.webkitRequestFullscreen()
+        } else if (video.mozRequestFullScreen) {
+          video.mozRequestFullScreen()
+        } else if (video.msRequestFullscreen) {
+          video.msRequestFullscreen()
         }
         setIsFullscreen(true)
       } else {
         // Exit fullscreen
         if (document.exitFullscreen) {
           document.exitFullscreen()
-        } else if ((document as any).webkitExitFullscreen) {
-          (document as any).webkitExitFullscreen()
-        } else if ((document as any).mozCancelFullScreen) {
-          (document as any).mozCancelFullScreen()
-        } else if ((document as any).msExitFullscreen) {
-          (document as any).msExitFullscreen()
+        } else if (extDocument.webkitExitFullscreen) {
+          extDocument.webkitExitFullscreen()
+        } else if (extDocument.mozCancelFullScreen) {
+          extDocument.mozCancelFullScreen()
+        } else if (extDocument.msExitFullscreen) {
+          extDocument.msExitFullscreen()
         }
         setIsFullscreen(false)
       }
@@ -263,22 +284,18 @@ export const VideoPlayer = ({
   // Effect to handle fullscreen events
   useEffect(() => {
     const handleFullscreenChange = () => {
+      const extDocument = document as ExtendedDocument
       const isCurrentlyFullscreen = !!(
         document.fullscreenElement ||
-        (document as any).webkitFullscreenElement ||
-        (document as any).mozFullScreenElement ||
-        (document as any).msFullscreenElement
+        extDocument.webkitFullscreenElement ||
+        extDocument.mozFullScreenElement ||
+        extDocument.msFullscreenElement
       )
       setIsFullscreen(isCurrentlyFullscreen)
     }
 
-    const handleWebkitFullscreenChange = () => {
-      // For iOS Safari
-      if (videoRef.current) {
-        const video = videoRef.current as any
-        setIsFullscreen(!!video.webkitDisplayingFullscreen)
-      }
-    }
+    const handleWebkitBeginFullscreen = () => setIsFullscreen(true)
+    const handleWebkitEndFullscreen = () => setIsFullscreen(false)
 
     // Add event listeners for fullscreen changes
     document.addEventListener('fullscreenchange', handleFullscreenChange)
@@ -286,11 +303,11 @@ export const VideoPlayer = ({
     document.addEventListener('mozfullscreenchange', handleFullscreenChange)
     document.addEventListener('msfullscreenchange', handleFullscreenChange)
 
-    // iOS specific events
-    if (videoRef.current) {
-      const video = videoRef.current
-      video.addEventListener('webkitbeginfullscreen', () => setIsFullscreen(true))
-      video.addEventListener('webkitendfullscreen', () => setIsFullscreen(false))
+    // iOS specific events - capture current video ref to avoid stale closure
+    const currentVideo = videoRef.current
+    if (currentVideo) {
+      currentVideo.addEventListener('webkitbeginfullscreen', handleWebkitBeginFullscreen)
+      currentVideo.addEventListener('webkitendfullscreen', handleWebkitEndFullscreen)
     }
 
     return () => {
@@ -299,10 +316,9 @@ export const VideoPlayer = ({
       document.removeEventListener('mozfullscreenchange', handleFullscreenChange)
       document.removeEventListener('msfullscreenchange', handleFullscreenChange)
       
-      if (videoRef.current) {
-        const video = videoRef.current
-        video.removeEventListener('webkitbeginfullscreen', () => setIsFullscreen(true))
-        video.removeEventListener('webkitendfullscreen', () => setIsFullscreen(false))
+      if (currentVideo) {
+        currentVideo.removeEventListener('webkitbeginfullscreen', handleWebkitBeginFullscreen)
+        currentVideo.removeEventListener('webkitendfullscreen', handleWebkitEndFullscreen)
       }
     }
   }, [])
