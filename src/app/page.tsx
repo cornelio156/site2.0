@@ -1,13 +1,14 @@
 'use client'
 
 import Link from 'next/link'
+import { useState } from 'react'
 import { Play, Clock, Eye, MessageCircle, CreditCard, AlertTriangle, Settings } from 'lucide-react'
 import { useSiteConfig } from '@/context/SiteConfigContext'
 import { usePaymentProofs } from '@/context/PaymentProofContext'
 import { VideoPlayer } from '@/components/VideoPlayer'
-import { ImageZoom } from '@/components/ImageZoom'
 import { useVideos } from '@/hooks/useVideos'
 import { appwriteConfig } from '@/lib/appwrite'
+import ImageModal from '@/components/ImageModal'
 
 // Função para verificar se o Appwrite está configurado
 const isAppwriteConfigured = () => {
@@ -28,6 +29,29 @@ export default function Home() {
     error: videosError, 
     incrementViews
   } = useVideos()
+  
+  // Modal state for image amplification
+  const [modalState, setModalState] = useState<{
+    isOpen: boolean
+    imageUrl: string
+  }>({
+    isOpen: false,
+    imageUrl: ''
+  })
+
+  const openImageModal = (imageUrl: string) => {
+    setModalState({
+      isOpen: true,
+      imageUrl
+    })
+  }
+
+  const closeImageModal = () => {
+    setModalState({
+      isOpen: false,
+      imageUrl: ''
+    })
+  }
   
   const isConfigured = isAppwriteConfigured()
 
@@ -337,9 +361,20 @@ export default function Home() {
                     {/* Payment Screenshot */}
                     {proof.imageUrl && (
                       <div className="mt-4">
-                        <ImageZoom
+                        <img
                           src={proof.imageUrl}
                           alt="Payment proof"
+                          className="w-full h-48 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => openImageModal(proof.imageUrl)}
+                          onError={(e) => {
+                            // Fallback para quando a imagem não carregar
+                            const target = e.target as HTMLImageElement
+                            target.style.display = 'none'
+                            const fallback = document.createElement('div')
+                            fallback.className = 'w-full h-48 bg-gray-200 rounded-lg border border-gray-200 flex items-center justify-center'
+                            fallback.innerHTML = '<span class="text-gray-500 text-sm">Payment Screenshot</span>'
+                            target.parentNode?.appendChild(fallback)
+                          }}
                         />
                       </div>
                     )}
@@ -413,6 +448,14 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* Image Modal */}
+      <ImageModal
+        isOpen={modalState.isOpen}
+        onClose={closeImageModal}
+        imageUrl={modalState.imageUrl}
+        altText="Payment proof"
+      />
     </div>
   )
 }

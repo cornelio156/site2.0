@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Eye, Check, X, Calendar, EyeOff, Loader, Upload, Plus } from 'lucide-react'
 import { usePaymentProofs } from '@/context/PaymentProofContext'
 import { PaymentProofService } from '@/services/paymentProofService'
+import ImageModal from '@/components/ImageModal'
 
 export default function PaymentProofs() {
   const { 
@@ -20,6 +21,29 @@ export default function PaymentProofs() {
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [uploadingFile, setUploadingFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
+  
+  // Modal state for image amplification
+  const [modalState, setModalState] = useState<{
+    isOpen: boolean
+    imageUrl: string
+  }>({
+    isOpen: false,
+    imageUrl: ''
+  })
+
+  const openImageModal = (imageUrl: string) => {
+    setModalState({
+      isOpen: true,
+      imageUrl
+    })
+  }
+
+  const closeImageModal = () => {
+    setModalState({
+      isOpen: false,
+      imageUrl: ''
+    })
+  }
 
   const filteredProofs = paymentProofs
 
@@ -241,7 +265,8 @@ export default function PaymentProofs() {
                            <img 
                              src={proof.imageUrl} 
                              alt="Payment proof" 
-                             className="w-16 h-16 object-cover rounded-lg border border-gray-200"
+                             className="w-16 h-16 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
+                             onClick={() => openImageModal(proof.imageUrl)}
                            />
                          ) : (
                            <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
@@ -426,6 +451,14 @@ export default function PaymentProofs() {
           </div>
         </div>
       )}
+
+      {/* Image Modal */}
+      <ImageModal
+        isOpen={modalState.isOpen}
+        onClose={closeImageModal}
+        imageUrl={modalState.imageUrl}
+        altText="Payment proof"
+      />
     </div>
   )
 }
