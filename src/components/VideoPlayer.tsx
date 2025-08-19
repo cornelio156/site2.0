@@ -79,8 +79,8 @@ export const VideoPlayer = ({
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
       
       // Convert to data URL
-      const dataURL = canvas.toDataURL('image/jpeg', 0.8)
-      setGeneratedPoster(dataURL)
+        const dataURL = canvas.toDataURL('image/jpeg', 0.8)
+        setGeneratedPoster(dataURL)
     } catch (error) {
       console.warn('Não foi possível gerar poster do vídeo (CORS):', error)
       // Fallback: usar o próprio vídeo como poster via object-fit
@@ -262,9 +262,12 @@ export const VideoPlayer = ({
         autoPlay={autoPlay}
         muted={true}
         poster={poster || (generatedPoster && generatedPoster !== 'fallback' ? generatedPoster : undefined)}
-        preload="auto"
-        crossOrigin="anonymous"
-        playsInline
+        preload="metadata"
+        playsInline={true}
+        webkit-playsinline="true"
+        x5-video-player-type="h5"
+        x5-video-player-fullscreen="true"
+        x5-playsinline="true"
         style={{ backgroundColor: 'transparent' }}
         onLoadedData={handleLoadedData}
         onLoadedMetadata={handleLoadedMetadata}
@@ -308,9 +311,8 @@ export const VideoPlayer = ({
         }}
         onClick={togglePlayPause}
       >
+        <source src={src} type="video/mp4; codecs=avc1.42E01E,mp4a.40.2" />
         <source src={src} type="video/mp4" />
-        <source src={src} type="video/webm" />
-        <source src={src} type="video/ogg" />
         Seu navegador não suporta reprodução de vídeo.
       </video>
 

@@ -5,6 +5,7 @@ import { Play, Clock, Eye, MessageCircle, CreditCard, AlertTriangle, Settings } 
 import { useSiteConfig } from '@/context/SiteConfigContext'
 import { usePaymentProofs } from '@/context/PaymentProofContext'
 import { VideoPlayer } from '@/components/VideoPlayer'
+import { ImageZoom } from '@/components/ImageZoom'
 import { useVideos } from '@/hooks/useVideos'
 import { appwriteConfig } from '@/lib/appwrite'
 
@@ -336,19 +337,9 @@ export default function Home() {
                     {/* Payment Screenshot */}
                     {proof.imageUrl && (
                       <div className="mt-4">
-                        <img
+                        <ImageZoom
                           src={proof.imageUrl}
                           alt="Payment proof"
-                          className="w-full h-48 object-cover rounded-lg border border-gray-200"
-                          onError={(e) => {
-                            // Fallback para quando a imagem não carregar
-                            const target = e.target as HTMLImageElement
-                            target.style.display = 'none'
-                            const fallback = document.createElement('div')
-                            fallback.className = 'w-full h-48 bg-gray-200 rounded-lg border border-gray-200 flex items-center justify-center'
-                            fallback.innerHTML = '<span class="text-gray-500 text-sm">Payment Screenshot</span>'
-                            target.parentNode?.appendChild(fallback)
-                          }}
                         />
                       </div>
                     )}
@@ -362,7 +353,7 @@ export default function Home() {
                 <div className="bg-gray-100 p-3 rounded-full">
                   <CreditCard className="w-8 h-8 text-gray-400" />
                 </div>
-              </div>
+            </div>
               <h3 className="text-xl font-semibold text-gray-700 mb-2">
                 Nenhuma Prova de Pagamento
               </h3>
